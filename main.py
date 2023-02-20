@@ -29,7 +29,7 @@ def read_root():
 
 
 async def run_server():
-    config = uvicorn.Config("main:app", port=8080, host='0.0.0.0', log_level="info", reload=True)
+    config = uvicorn.Config("main:app", port=3080, host='0.0.0.0', log_level="info", reload=True)
     server = uvicorn.Server(config)
     await server.serve()
 
