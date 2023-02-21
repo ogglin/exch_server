@@ -47,3 +47,11 @@ async def settings():
     if items is None:
         return JSONResponse(status_code=404, content={"message": f"Not found settings"})
     return {"settings": items}
+
+
+@router.get("/timers")
+async def settings():
+    items = await old_redis.hgetall('timers')
+    if items is None:
+        return JSONResponse(status_code=404, content={"message": f"Not found timers"})
+    return {"settings": items}
