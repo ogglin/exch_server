@@ -32,7 +32,7 @@ manager = ConnectionManager()
 async def timers():
     while True:
         try:
-            items = await old_redis.hgetall('timers')
+            items = await redis.hgetall('timers')
             await manager.broadcast(f'"timers": {items}')
             await asyncio.sleep(1)
         except Exception as err:

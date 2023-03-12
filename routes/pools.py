@@ -13,15 +13,7 @@ router = APIRouter()
 async def pools(pool: str = None):
     items = None
     if pool:
-        # items = {}
-        if pool == 'pools-v2' or pool == 'pools-v3' or pool == 'sushi_v2_pools':
-            items = await old_redis.hgetall(pool)
-            # for k, v in (await old_redis.hgetall(pool)).items():
-            #     items[k] = json.loads(v.replace('True', 'true').replace('False', 'false'))
-        else:
-            items = await redis.hgetall(pool)
-            # for k, v in (await redis.hgetall(pool)).items():
-            #     items[k] = json.loads(v)
+        items = await redis.hgetall(pool)
     if items is None or len(items) < 1:
         return JSONResponse(status_code=404, content={
             "message": f"Не найден {pool}, примеры: pools-v2, pools-v3, pools_pancake, sushi_v2_pools"})

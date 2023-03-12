@@ -14,7 +14,6 @@ from config import DATABASE_NAME, DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOS
     REDIS_PASSWORD
 
 redis = aioredis.from_url(REDIS_URL, decode_responses=True, db=REDIS_DB, password=REDIS_PASSWORD)
-old_redis = aioredis.from_url('redis://65.21.191.118', decode_responses=True, db=REDIS_DB, password=REDIS_PASSWORD)
 
 
 async def async_query(q):
