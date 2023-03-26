@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse
 
-from routes import pools
+from routes import pools, websock
 from routes.websock import *
 
 app = FastAPI()
@@ -28,12 +28,14 @@ def read_root():
     return HTMLResponse(content=html_content, status_code=200)
 
 
-@app.websocket("/ws/")
+@app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
+            if data == 'sub replicas':
+                asyncio.create_task(replicas_broadcast(websocket))
             await manager.send_personal_message(f"You wrote: {data}", websocket)
             await manager.broadcast(f"Client says: {data}")
     except WebSocketDisconnect:
