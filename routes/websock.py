@@ -64,11 +64,14 @@ async def last_block():
 
 
 async def profits():
+    length = 0
     while True:
         try:
             items = await redis.hgetall('profits')
-            await manager.broadcast(f'"profits": {items}')
-            await asyncio.sleep(1)
+            if length != len(json.dumps(items)):
+                length = len(json.dumps(items))
+                await manager.broadcast(f'"profits": {items}')
+            await asyncio.sleep(.1)
         except Exception as err:
             print('profits', err)
 
