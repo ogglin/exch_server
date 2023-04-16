@@ -69,9 +69,7 @@ async def profits():
         try:
             items = await redis.hgetall('profits')
             if length != len(json.dumps(items)):
-                print(len(json.dumps(items)))
                 await manager.broadcast(f'"profits": {items}')
-                print('profits')
             await asyncio.sleep(.1)
         except Exception as err:
             print('profits', err)
