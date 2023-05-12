@@ -36,7 +36,6 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        print(self.active_connections)
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
@@ -45,9 +44,14 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        # print(active_connections)
         for connection in self.active_connections:
-            await connection.send_text(message)
+            try:
+                await connection.send_text(message)
+            except Exception as e:
+                print(e)
+                print(self.active_connections)
+                self.active_connections.remove(connection)
+                print(self.active_connections)
 
     async def broadcast_bytes(self, message: bytes):
         for connection in self.active_connections:
