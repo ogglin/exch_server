@@ -36,6 +36,7 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
+        print(self.active_connections)
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
@@ -44,6 +45,7 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
+        # print(active_connections)
         for connection in self.active_connections:
             await connection.send_text(message)
 
@@ -72,24 +74,20 @@ async def trigger_events():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    # asyncio.create_task(timers(manager))
-    # asyncio.create_task(settings(manager))
-    # asyncio.create_task(last_block(manager))
-    # asyncio.create_task(profits(manager))
     try:
         while True:
             await timers(manager)
             await settings(manager)
             await last_block(manager)
             await profits(manager)
-            data = await websocket.receive_text()
-            if data == 'sub replicas':
-                asyncio.create_task(replicas_broadcast(manager))
-            await manager.send_personal_message(f"You wrote: {data}", websocket)
-            await manager.broadcast(f"Client says: {data}")
+            # data = await websocket.receive_text()
+            # if data == 'sub replicas':
+            #     asyncio.create_task(replicas_broadcast(manager))
+            # await manager.send_personal_message(f"You wrote: {data}", websocket)
+            # await manager.broadcast(f"Client says: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        await manager.broadcast(f"Client left the chat")
+        await manager.broadcast(f"Client {websocket} left the chat")
 
 
 async def run_server():

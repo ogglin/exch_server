@@ -8,53 +8,53 @@ from db import *
 
 
 async def timers(manager):
-    while True:
-        try:
-            items = await redis.hgetall('timers')
-            await manager.broadcast(f'"timers": {items}')
-            await asyncio.sleep(1)
-        except Exception as err:
-            print('ws', err)
+    # while True:
+    try:
+        items = await redis.hgetall('timers')
+        await manager.broadcast(f'"timers": {items}')
+        await asyncio.sleep(.1)
+    except Exception as err:
+        print('ws', err)
 
 
 async def settings(manager):
-    while True:
-        try:
-            items = await redis.get('settings')
-            await manager.broadcast(f'"settings": {items}')
-            await asyncio.sleep(1)
-        except Exception as err:
-            print('ws', err)
+    # while True:
+    try:
+        items = await redis.get('settings')
+        await manager.broadcast(f'"settings": {items}')
+        await asyncio.sleep(.1)
+    except Exception as err:
+        print('ws', err)
 
 
 async def last_block(manager):
-    while True:
-        try:
-            items = await redis.get('last_block')
-            await manager.broadcast(f'"last_block": {items}')
-            await asyncio.sleep(1)
-        except Exception as err:
-            print('last_block', err)
+    # while True:
+    try:
+        items = await redis.get('last_block')
+        await manager.broadcast(f'"last_block": {items}')
+        await asyncio.sleep(.1)
+    except Exception as err:
+        print('last_block', err)
 
 
 async def profits(manager):
     length = 0
-    while True:
-        try:
-            items = await redis.hgetall('profits')
-            for k, val in items.items():
-                profs = json.loads(val)
-                for prof in profs:
-                    if 'SIPHER' in str(prof):
-                        # print(prof)
-                        pass
-                        print(prof['market'], prof['usd_profit'])
+    # while True:
+    try:
+        items = await redis.hgetall('profits')
+        for k, val in items.items():
+            profs = json.loads(val)
+            for prof in profs:
+                if 'SIPHER' in str(prof):
+                    # print(prof)
+                    pass
+                    # print(prof['market'], prof['usd_profit'])
 
-            if length != len(json.dumps(items)):
-                await manager.broadcast(f'"profits": {items}')
-            await asyncio.sleep(.1)
-        except Exception as err:
-            print('profits', err)
+        if length != len(json.dumps(items)):
+            await manager.broadcast(f'"profits": {items}')
+        await asyncio.sleep(.1)
+    except Exception as err:
+        print('profits', err)
 
 
 async def h_get_all(hkey):
