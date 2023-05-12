@@ -43,7 +43,7 @@ async def settings():
 
 @router.get("/timers")
 async def settings():
-    items = await old_redis.hgetall('timers')
+    items = await redis.hgetall('timers')
     if items is None:
         return JSONResponse(status_code=404, content={"message": f"Not found timers"})
     return {"settings": items}

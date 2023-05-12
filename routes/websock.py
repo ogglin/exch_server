@@ -7,33 +7,7 @@ from fastapi import WebSocket
 from db import *
 
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
-
-    async def broadcast_bytes(self, message: bytes):
-        for connection in self.active_connections:
-            await connection.send_bytes(message)
-
-
-manager = ConnectionManager()
-
-
-async def timers():
+async def timers(manager):
     while True:
         try:
             items = await redis.hgetall('timers')
@@ -43,7 +17,7 @@ async def timers():
             print('ws', err)
 
 
-async def settings():
+async def settings(manager):
     while True:
         try:
             items = await redis.get('settings')
@@ -53,7 +27,7 @@ async def settings():
             print('ws', err)
 
 
-async def last_block():
+async def last_block(manager):
     while True:
         try:
             items = await redis.get('last_block')
@@ -63,11 +37,19 @@ async def last_block():
             print('last_block', err)
 
 
-async def profits():
+async def profits(manager):
     length = 0
     while True:
         try:
             items = await redis.hgetall('profits')
+            for k, val in items.items():
+                profs = json.loads(val)
+                for prof in profs:
+                    if 'SIPHER' in str(prof):
+                        # print(prof)
+                        pass
+                        # print(prof['market'], prof['usd_profit'])
+
             if length != len(json.dumps(items)):
                 await manager.broadcast(f'"profits": {items}')
             await asyncio.sleep(.1)
@@ -85,21 +67,7 @@ async def h_get_all(hkey):
             print('error h_get_all:', err)
 
 
-async def bnb_profit(websocket):
-    while True:
-        try:
-            await asyncio.sleep(1)
-            msg = await redis.hgetall('profits')
-            jdata = {f'profits': msg}
-            compressed_data = gzip.compress(json.dumps(jdata).encode("utf-8"))
-            await manager.broadcast_bytes(compressed_data)
-        except Exception as exp:
-            print('bnb_profit error:', exp)
-            manager.disconnect(websocket)
-            await manager.broadcast(f"Client #{websocket} left the chat")
-
-
-async def replicas_broadcast(websocket):
+async def replicas_broadcast(manager):
     try:
         while True:
             a_tasks = [
@@ -121,8 +89,8 @@ async def replicas_broadcast(websocket):
             await manager.broadcast_bytes(compressed_data)
     except Exception as exp:
         print('replicas_broadcast error:', exp)
-        manager.disconnect(websocket)
-        await manager.broadcast(f"Client #{websocket} left the chat")
+        manager.disconnect()
+        await manager.broadcast(f"Client #{manager.disconnect} left the chat")
 
 # @router.websocket("/ws")
 # async def websocket_endpoint(websocket: WebSocket):

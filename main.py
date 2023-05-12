@@ -3,6 +3,7 @@ import asyncio
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_websocket_pubsub import PubSubEndpoint
 from starlette.responses import HTMLResponse
 
 from routes import pools, websock
@@ -19,7 +20,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+endpoint = PubSubEndpoint()
+endpoint.register_route(app, path="/pubsub")
+
 app.include_router(pools.router)
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+    async def broadcast_bytes(self, message: bytes):
+        for connection in self.active_connections:
+            await connection.send_bytes(message)
+
+
+manager = ConnectionManager()
 
 
 @app.get("/")
@@ -28,26 +58,32 @@ def read_root():
     return HTMLResponse(content=html_content, status_code=200)
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            if data == 'sub replicas':
-                asyncio.create_task(replicas_broadcast(websocket))
-            await manager.send_personal_message(f"You wrote: {data}", websocket)
-            await manager.broadcast(f"Client says: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-        await manager.broadcast(f"Client left the chat")
+@app.get("/trigger")
+async def trigger_events():
+    # Upon request trigger an event
+    await endpoint.publish(["triggered"])
+
+
+# @app.websocket("/ws")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await manager.connect(websocket)
+#     try:
+#         while True:
+#             data = await websocket.receive_text()
+#             if data == 'sub replicas':
+#                 asyncio.create_task(replicas_broadcast(websocket))
+#             await manager.send_personal_message(f"You wrote: {data}", websocket)
+#             await manager.broadcast(f"Client says: {data}")
+#     except WebSocketDisconnect:
+#         manager.disconnect(websocket)
+#         await manager.broadcast(f"Client left the chat")
 
 
 async def run_server():
-    asyncio.create_task(timers())
-    asyncio.create_task(settings())
-    asyncio.create_task(last_block())
-    asyncio.create_task(profits())
+    asyncio.create_task(timers(manager))
+    asyncio.create_task(settings(manager))
+    asyncio.create_task(last_block(manager))
+    asyncio.create_task(profits(manager))
     config = uvicorn.Config("main:app", port=3080, host='0.0.0.0', log_level="info", reload=True)
     server = uvicorn.Server(config)
     await server.serve()
