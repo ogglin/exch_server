@@ -48,7 +48,7 @@ async def profits(manager):
                     if 'SIPHER' in str(prof):
                         # print(prof)
                         pass
-                        # print(prof['market'], prof['usd_profit'])
+                        print(prof['market'], prof['usd_profit'])
 
             if length != len(json.dumps(items)):
                 await manager.broadcast(f'"profits": {items}')

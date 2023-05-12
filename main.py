@@ -25,10 +25,13 @@ endpoint.register_route(app, path="/pubsub")
 
 app.include_router(pools.router)
 
+active_connections: List[WebSocket] = []
+
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        global active_connections
+        self.active_connections = active_connections
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -69,12 +72,16 @@ async def trigger_events():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    asyncio.create_task(timers(manager))
-    asyncio.create_task(settings(manager))
-    asyncio.create_task(last_block(manager))
-    asyncio.create_task(profits(manager))
+    # asyncio.create_task(timers(manager))
+    # asyncio.create_task(settings(manager))
+    # asyncio.create_task(last_block(manager))
+    # asyncio.create_task(profits(manager))
     try:
         while True:
+            await timers(manager)
+            await settings(manager)
+            await last_block(manager)
+            await profits(manager)
             data = await websocket.receive_text()
             if data == 'sub replicas':
                 asyncio.create_task(replicas_broadcast(manager))
