@@ -1,3 +1,5 @@
+import base64
+import gzip
 from typing import List
 
 from fastapi import APIRouter
@@ -6,6 +8,18 @@ from starlette.responses import JSONResponse
 from db import *
 
 router = APIRouter()
+
+
+async def ungzip(base64_string):
+    try:
+        b = bytearray()
+        b.extend(map(ord, base64_string))
+        compressed_data = base64.b64decode(b)
+        uncompressed_data = gzip.decompress(compressed_data).decode()
+        return json.loads(uncompressed_data)
+    except Exception as e:
+        print(f'ungzip: {e}')
+        print(base64_string)
 
 
 # select?hashkey=pools-v2
@@ -21,16 +35,22 @@ async def pools(pool: str = None):
 
 
 @router.get("/replica")
-async def replica(market: str = None):
-    items = None
-    if market:
+async def replica(market: str = None, key: str = None):
+    if market and key:
+        items = await redis.hget(market, key)
+        if items is None or len(items) < 1:
+            return JSONResponse(status_code=404, content={
+                "message": f"Не найден {market} - {key}"})
+        return {market: {key: await ungzip(items)}}
+    elif market:
         items = await redis.hgetall(market)
-        # for k, v in (await redis.hgetall(market)).items():
-        #     items[k] = json.loads(v.replace("'", '"'))
-    if items is None or len(items) < 1:
-        return JSONResponse(status_code=404, content={
-            "message": f"Не найден {market}, примеры: ascendex, bitrue, bkex, gate, hitbtc, hotbit, kucoin, mxc"})
-    return {market: items}
+        if items is None or len(items) < 1:
+            return JSONResponse(status_code=404, content={
+                "message": f"Не найден {market}, примеры: ascendexzip, bitruezip, bkexzip, gatezip, hitbtczip, hotbitzip, kucoinzip, mexczip"})
+        else:
+            unzip_items = {k: await ungzip(v) for k, v in items.items()}
+            print(list(unzip_items.keys()))
+        return {market: list(unzip_items.keys())}
 
 
 @router.get("/settings")
