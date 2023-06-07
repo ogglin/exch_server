@@ -41,7 +41,12 @@ async def replica(market: str = None, key: str = None):
         if items is None or len(items) < 1:
             return JSONResponse(status_code=404, content={
                 "message": f"Не найден {market} - {key}"})
-        return {market: {key: await ungzip(items)}}
+        items = await ungzip(items)
+        print(items['bids'])
+        items['bids'] = reversed(items['bids'])
+        items['asks'] = reversed(list(reversed(items['asks'])))
+        # print(items['bids'].reverse())
+        return {market: {key: items}}
     elif market:
         items = await redis.hgetall(market)
         if items is None or len(items) < 1:
