@@ -92,30 +92,10 @@ async def replicas_broadcast(manager):
         manager.disconnect()
         await manager.broadcast(f"Client #{manager.disconnect} left the chat")
 
-# @router.websocket("/ws")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await manager.connect(websocket)
-#     try:
-#         while True:
-#             a_tasks = [
-#                 h_get_all('ascendex'),
-#                 h_get_all('bitrue'),
-#                 h_get_all('bkex'),
-#                 h_get_all('gate'),
-#                 h_get_all('hitbtc'),
-#                 h_get_all('hotbit'),
-#                 h_get_all('mxc'),
-#                 h_get_all('kucoin'),
-#                 bnb_profit()
-#             ]
-#             data = await asyncio.gather(*a_tasks)
-#             result = {}
-#             for d in data:
-#                 for k, v in d.items():
-#                     result[k] = v
-#             compressed_data = gzip.compress(json.dumps(data).encode("utf-8"))
-#             await manager.broadcast_bytes(compressed_data)
-#     except Exception as exp:
-#         print('ws error:', exp)
-#         manager.disconnect(websocket)
-#         await manager.broadcast(f"Client #{websocket} left the chat")
+
+async def tickers_alert(manager):
+    try:
+        items = await redis.hgetall('ticks_alerts')
+        await manager.broadcast(f'"ticks_alerts": {items}')
+    except Exception as e:
+        print('ticks_alerts', e)
