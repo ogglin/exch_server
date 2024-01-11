@@ -42,6 +42,7 @@ async def replica(market: str = None, key: str = None):
             return JSONResponse(status_code=404, content={
                 "message": f"Не найден {market} - {key}"})
         items = await ungzip(items)
+        print(items)
         items['bids'] = reversed(items['bids'])
         items['asks'] = reversed(list(reversed(items['asks'])))
         return {market: {key: items}}

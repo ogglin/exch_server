@@ -99,3 +99,11 @@ async def tickers_alert(manager):
         await manager.broadcast(f'"ticks_alerts": {items}')
     except Exception as e:
         print('ticks_alerts', e)
+
+
+async def transfers(manager):
+    try:
+        items = await redis.hgetall('transfers')
+        await manager.broadcast(f'"transfers": {items}')
+    except Exception as e:
+        print('ticks_alerts', e)
