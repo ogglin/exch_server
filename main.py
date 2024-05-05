@@ -86,6 +86,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await profits(manager)
             await tickers_alert(manager)
             await transfers(manager)
+            await wallets(manager)
             # data = await websocket.receive_text()
             # if data == 'sub replicas':
             #     asyncio.create_task(replicas_broadcast(manager))

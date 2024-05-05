@@ -106,4 +106,12 @@ async def transfers(manager):
         items = await redis.hgetall('transfers')
         await manager.broadcast(f'"transfers": {items}')
     except Exception as e:
-        print('ticks_alerts', e)
+        print('transfers', e)
+
+
+async def wallets(manager):
+    try:
+        items = await redis.hgetall('wallets_checked')
+        await manager.broadcast(f'"wallets": {items}')
+    except Exception as e:
+        print('wallets_checked', e)
