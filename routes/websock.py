@@ -111,7 +111,7 @@ async def transfers(manager):
 
 async def new_transfers(manager):
     try:
-        items = await redis.hgetall('new_transfers')
+        items = await redis.hgetall('transfers')
         await manager.broadcast(f'"new_transfers": {items}')
     except Exception as e:
         print('new_transfers', e)
