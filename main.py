@@ -1,108 +1,188 @@
 import asyncio
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_websocket_pubsub import PubSubEndpoint
-from starlette.responses import HTMLResponse
-
-from routes import pools, websock
 from routes.websock import *
-
 app = FastAPI()
 
-origins = ['*']
+# Разрешить CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-endpoint = PubSubEndpoint()
-endpoint.register_route(app, path="/pubsub")
 
-app.include_router(pools.router)
-
-active_connections: List[WebSocket] = []
-
+# =====================================================
+#   Connection Manager — подписки / рассылка
+# =====================================================
 
 class ConnectionManager:
     def __init__(self):
-        global active_connections
-        self.active_connections = active_connections
+        # { websocket: {"timers", "settings", ...} }
+        self.connections = {}
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self.connections[websocket] = set()
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.connections:
+            del self.connections[websocket]
 
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+    def subscribe(self, websocket: WebSocket, channel: str):
+        self.connections[websocket].add(channel)
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
+    def unsubscribe(self, websocket: WebSocket, channel: str):
+        self.connections[websocket].discard(channel)
+
+    def subscribers(self, channel: str):
+        return [
+            ws for ws, subs in self.connections.items()
+            if channel in subs
+        ]
+
+    async def broadcast(self, channel: str, message):
+        dead = []
+
+        for ws in self.subscribers(channel):
             try:
-                await connection.send_text(message)
+                # FastAPI автоматически сериализует dict в JSON
+                await ws.send_json({channel: message})
+            except WebSocketDisconnect:
+                dead.append(ws)
             except Exception as e:
-                print(e)
-                print(self.active_connections)
-                self.active_connections.remove(connection)
-                print(self.active_connections)
+                print(f"Send failed but ws kept alive: {e}")
 
-    async def broadcast_bytes(self, message: bytes):
-        for connection in self.active_connections:
-            await connection.send_bytes(message)
+        for ws in dead:
+            self.disconnect(ws)
 
 
 manager = ConnectionManager()
 
 
-@app.get("/")
-def read_root():
-    html_content = 'Exchanger API v1 <a href="/docs">docs</a>'
-    return HTMLResponse(content=html_content, status_code=200)
+# =====================================================
+#   Обработчики — вызываются только если есть подписчики
+# =====================================================
+
+async def timers(manager):
+    if not manager.subscribers("timers"):
+        return
+    await manager.broadcast("timers", await get_timers_data())
 
 
-@app.get("/trigger")
-async def trigger_events():
-    # Upon request trigger an event
+async def settings(manager):
+    if not manager.subscribers("settings"):
+        return
+    await manager.broadcast("settings", await get_settings_data())
+
+
+async def last_block(manager):
+    if not manager.subscribers("last_block"):
+        return
+    await manager.broadcast("last_block", await get_last_block_data())
+
+
+async def profits(manager):
+    if not manager.subscribers("profits"):
+        return
+    await manager.broadcast("profits", await get_profits_data())
+
+
+async def tickers_alert(manager):
+    if not manager.subscribers("tickers_alert"):
+        return
+    await manager.broadcast("tickers_alert", await get_tickers_alert_data())
+
+
+async def transfers(manager):
+    if not manager.subscribers("transfers"):
+        return
+    await manager.broadcast("transfers", await get_transfers_data())
+
+
+async def new_transfers(manager):
+    if not manager.subscribers("new_transfers"):
+        return
+    await manager.broadcast("new_transfers", await get_new_transfers_data())
+
+
+async def wallets(manager):
+    if not manager.subscribers("wallets"):
+        return
+    await manager.broadcast("wallets", await get_wallets_data())
+
+
+# =====================================================
+#   Producer — общий фон рассылающий обновления
+# =====================================================
+
+async def producer(manager: ConnectionManager):
     while True:
-        await endpoint.publish([f"triggered  {time.time()}"])
-        await asyncio.sleep(1)
+        await asyncio.gather(
+            timers(manager),
+            settings(manager),
+            last_block(manager),
+            profits(manager),
+            tickers_alert(manager),
+            transfers(manager),
+            new_transfers(manager),
+            wallets(manager)
+        )
+        await asyncio.sleep(0.2)
 
+
+# =====================================================
+#   WebSocket consumer — подписки / отписки
+# =====================================================
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
+
     try:
         while True:
-            await timers(manager)
-            await settings(manager)
-            await last_block(manager)
-            await profits(manager)
-            await tickers_alert(manager)
-            await transfers(manager)
-            await new_transfers(manager)
-            await wallets(manager)
-            # data = await websocket.receive_text()
-            # if data == 'sub replicas':
-            #     asyncio.create_task(replicas_broadcast(manager))
-            # await manager.send_personal_message(f"You wrote: {data}", websocket)
-            # await manager.broadcast(f"Client says: {data}")
+            msg = await websocket.receive_text()
+            parts = msg.split()
+            if len(parts) != 2:
+                continue
+
+            cmd, channel = parts
+            if cmd == "sub":
+                manager.subscribe(websocket, channel)
+
+            elif cmd == "unsub":
+                manager.unsubscribe(websocket, channel)
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        await manager.broadcast(f"Client {websocket} left the chat")
 
 
-async def run_server():
-    config = uvicorn.Config("main:app", port=3080, host='0.0.0.0', log_level="info", reload=True)
-    server = uvicorn.Server(config)
-    await server.serve()
+# =====================================================
+#   Запуск сервера
+# =====================================================
+
+# @app.on_event("startup")
+# async def start_background_tasks():
+#     asyncio.create_task(producer(manager))
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Server startup...")
+    asyncio.create_task(producer(manager))
+    yield
+    print("Server shutdown...")
+
+app.router.lifespan_context = lifespan
+
+
+def run_server():
+    uvicorn.run("main:app", host="0.0.0.0", port=30080, reload=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(run_server())
+    run_server()

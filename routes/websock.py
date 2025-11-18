@@ -2,59 +2,37 @@ import asyncio
 import gzip
 from typing import List
 
-from fastapi import WebSocket
-
 from db import *
 
 
-async def timers(manager):
-    # while True:
+async def get_timers_data():
     try:
-        items = await redis.hgetall('timers')
-        await manager.broadcast(f'"timers": {items}')
-        await asyncio.sleep(.1)
+        return await redis.hgetall('timers')
     except Exception as err:
-        print('ws', err)
+        return err
 
 
-async def settings(manager):
-    # while True:
+async def get_settings_data():
     try:
-        items = await redis.get('settings')
-        await manager.broadcast(f'"settings": {items}')
-        await asyncio.sleep(.1)
+        return await redis.get('settings')
     except Exception as err:
-        print('ws', err)
+        return err
 
 
-async def last_block(manager):
-    # while True:
+async def get_last_block_data():
     try:
-        items = await redis.get('last_block')
-        await manager.broadcast(f'"last_block": {items}')
-        await asyncio.sleep(.1)
+        return await redis.get('last_block')
     except Exception as err:
-        print('last_block', err)
+        return err
 
 
-async def profits(manager):
-    length = 0
-    # while True:
+async def get_profits_data():
     try:
         items = await redis.hgetall('profits')
-        for k, val in items.items():
-            profs = json.loads(val)
-            for prof in profs:
-                if 'SIPHER' in str(prof):
-                    # print(prof)
-                    pass
-                    # print(prof['market'], prof['usd_profit'])
-
-        if length != len(json.dumps(items)):
-            await manager.broadcast(f'"profits": {items}')
-        await asyncio.sleep(.1)
+        if len(json.dumps(items)) > 0:
+            return items
     except Exception as err:
-        print('profits', err)
+        return err
 
 
 async def h_get_all(hkey):
@@ -93,33 +71,29 @@ async def replicas_broadcast(manager):
         await manager.broadcast(f"Client #{manager.disconnect} left the chat")
 
 
-async def tickers_alert(manager):
+async def get_tickers_alert_data():
     try:
-        items = await redis.hgetall('ticks_alerts')
-        await manager.broadcast(f'"ticks_alerts": {items}')
+        return await redis.hgetall('ticks_alerts')
     except Exception as e:
-        print('ticks_alerts', e)
+        return e
 
 
-async def transfers(manager):
+async def get_transfers_data():
     try:
-        items = await redis.hgetall('transfers')
-        await manager.broadcast(f'"transfers": {items}')
-    except Exception as e:
-        print('transfers', e)
+        return await redis.hgetall('transfers')
+    except Exception as err:
+        return err
 
 
-async def new_transfers(manager):
+async def get_new_transfers_data():
     try:
-        items = await redis.hgetall('new_transfers')
-        await manager.broadcast(f'"new_transfers": {items}')
-    except Exception as e:
-        print('new_transfers', e)
+        return await redis.hgetall('new_transfers')
+    except Exception as err:
+        return err
 
 
-async def wallets(manager):
+async def get_wallets_data():
     try:
-        items = await redis.hgetall('wallets_checked')
-        await manager.broadcast(f'"wallets": {items}')
-    except Exception as e:
-        print('wallets_checked', e)
+        return await redis.hgetall('wallets_checked')
+    except Exception as err:
+        return err
